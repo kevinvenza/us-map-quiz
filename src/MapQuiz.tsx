@@ -153,6 +153,7 @@ export default function MapQuiz() {
         text.setAttribute('stroke', '#ffffff'); // white outline for readability
         text.setAttribute('stroke-width', '2.5px');
         text.setAttribute('paint-order', 'stroke');
+        text.setAttribute('pointer-events', 'none'); // Extra safety
         text.textContent = stateAbbr;
 
         labelGroup.appendChild(text);
@@ -160,13 +161,21 @@ export default function MapQuiz() {
 
       svg.appendChild(labelGroup);
     }
-  });
+  }, [mode, remainingStates.length]); // Stabilize: only run when mode or quiz progress changes
+
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleMapClick = (event: React.MouseEvent<SVGPathElement>) => {
-    if (!currentQuestion) return;
+    if (!currentQuestion || isProcessing) return;
     
-    // react-usa-map stores the state abbreviation in dataset.name
-    const clickedStateAbbr = (event.target as SVGElement).dataset.name;
+    // Use currentTarget to get the element the listener is attached to (the path),
+    // which is more reliable than event.target on mobile devices.
+    const target = event.currentTarget as SVGElement;
+    const clickedStateAbbr = target.dataset.name;
+
+    if (!clickedStateAbbr) return;
+
+    setIsProcessing(true);
 
     if (clickedStateAbbr === currentQuestion.abbr) {
       setFeedback({ message: 'Correct! 🎉', isCorrect: true });
@@ -184,6 +193,9 @@ export default function MapQuiz() {
     const newRemaining = remainingStates.filter((s) => s.abbr !== currentQuestion.abbr);
     setRemainingStates(newRemaining);
     setCurrentQuestion(null); // will trigger useEffect to pick next
+    
+    // Short cooldown to prevent accidental double-taps on mobile
+    setTimeout(() => setIsProcessing(false), 300);
   };
 
   const handleStartOver = () => {
